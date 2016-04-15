@@ -1,7 +1,7 @@
 /* Ethernet addresses are 6 bytes */
 //#define ETHER_ADDR_LEN	6
-#define IPV4 4
-#define IPV6 6
+#define IPV4	4
+#define IPV6	6
 #define SIZE_ETHERNET 14
 
 	/* Ethernet header */

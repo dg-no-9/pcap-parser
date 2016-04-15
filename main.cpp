@@ -55,10 +55,35 @@ void packetHandler(u_char *userData, const struct pcap_pkthdr* pkthdr, const u_c
 	cout <<t<< ":" << src_ip << "," << (int)(ip->ip_p) << " size: " << pkthdr->len << endl;
 }
 
+int hashCode(int* a) {
+	if (a == NULL)
+		return 0;  
+	int result = 1;
+	for (int i = 0; i < 4; i++){
+		int element = a[i];
+ 		result = 31 * result + element;  
+	}
+ 	return result;
+}
+
+
 int main(){
-	const char* filename = "equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap";
+	
+	int a[4] = {1,2,3,5};
+	cout << hashCode(a) << " "; 
+	exit(0);
+	string filename = "equinix-sanjose.dirA.20101029-135500.UTC.anon.pcap.gz";//"equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap.gz";
+	string pcap = filename.substr(0, filename.size() - 3);
 	Parser *p = new Parser();
-	p->parse(filename, 0.5);
+	const char* args = (string("gunzip -c ") + filename + string(" >") + pcap).c_str();
+	system(args);
+	clock_t begin = clock();
+	p->parse(pcap.c_str(), 0.5);
+	int tm = ((std::clock() - begin)/(double)(CLOCKS_PER_SEC/1000000));
+
+	cout << "Time Taken:" << tm << endl;
+	const char* args2 = (string("rm ") + pcap).c_str();
+	system(args2);
 
 	return 0;
 }

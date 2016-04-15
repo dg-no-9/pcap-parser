@@ -8,6 +8,11 @@
 #include <arpa/inet.h>
 #include <map>
 #include <vector>
+#include <string>
+#include <cmath>
+#include <functional>
+#include <iomanip>
+#include <ctime>
 #include "header.h"
 
 using namespace std;
@@ -52,32 +57,87 @@ struct Packet{
 
 };
 
+struct Counter{
+	public:
+		map<int, int>
+		cipv6prot, 
+	    cipprot,
+	    cipv6tcppnum, 
+	    ciptcppnum,
+	    cipv6udppnum,
+	    cipudppnum, 
+	    cipv6icmp, 
+	    cipicmp,
+	     
+	    ctcphs, 
+	    ctcpflagbyte,  
+	    ctemp,
+	    css, 
+	    cwscale,
+	    ctcpflag8;
+
+	    map<tuple<long, long, int, int>, int> ctcpcon,cudpcon;
+
+	    float cttl, csip, cdip, cmsbip, cmsb2ip; //Entropy Counters
+
+	    int lcttl, lcsip, lcdip, lcmsbip, lcmsb2ip, lctcpcon, lcudpcon; //Length Counters
+
+		    void print(){
+		    	printdict(cipprot);
+		    	//cout << cttl << endl;
+		    }
+
+    private:
+		template <typename T>
+		void printdict(map<T, int> m){
+			typename map<T, int>::iterator it;
+			cout << '[';
+			for(it = m.begin(); it != m.end(); it++){
+				if(it != m.begin()) cout << ',';
+				cout <<'('<<it->first << "," << it->second << ')';
+			}
+			
+			cout << ']' << endl;
+		}
+
+};
+
 struct PacketGroup{
 	public:
-		PacketGroup():  count(0),pktcount(0),bytecount(0),fragcount(0)
+		PacketGroup():  pktcount(0),bytecount(0),fragcount(0)
 						,pktcountv6(0),bytecountv6(0),countsap(0),countsa(0)
 						,counttse(0),cbl(0),cbh(0),ws0(0),rsw0(0)
 						{}
-		time_s ts;
-		int count;
+		long starttime;
+		long prevtime;
+
 		int pktcount;
 		int bytecount;
 		int fragcount;
 		int pktcountv6;
 		int bytecountv6;
-		int countsap;
-		int countsa;
-		int counttse;
+
 		int cbl;
 		int cbh;
 		int ws0;
 		int rsw0;
 
+		int countsap;
+		int countsa;
+		int counttse;
+
+
+		struct Counter counters; //Struct for dictionaries.
+
 		void print(){
-			printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
-					pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
+			//printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
+					//pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
+			//counters.print();
+			cout << starttime << "," << prevtime << endl;
 		}
+
 };
+
 
 class Parser{
 	public:
