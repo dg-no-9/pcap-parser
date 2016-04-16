@@ -22,17 +22,6 @@ float entropy(map<T, int> m){
     return -sum(numpy.log(al)*al)*/
 }
 
-/*int hashCode(int* a) {
-	if (a == NULL)
-		return 0;  
-	int result = 1;
-	for (int i = 0; i < 4; i++){
-		int element = a[i];
- 		result = 31 * result + element;  
-	}
- 	return result;
-}*/
-
 int Parser::parse(const char* filename, float slicetime){
 	pcap_t *handle;
 	struct pcap_pkthdr header;
@@ -84,6 +73,7 @@ int Parser::parse(const char* filename, float slicetime){
     map<tuple<long, long, int, int>, int> ctcpcon, cudpcon;
 
 	while(packet = pcap_next(handle, &header), packet != NULL ){
+		continue;
 		ts = (long)header.ts.tv_sec*1000000 + (long)header.ts.tv_usec;
 		Packet p = this->getFromPacket(header, packet);
 		//p.t.seconds = (long)header.ts.tv_sec;
