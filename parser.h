@@ -133,7 +133,6 @@ struct PacketGroup{
 			//printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
 					//pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
 			//counters.print();
-			cout << starttime << "," << prevtime << endl;
 		}
 
 };
@@ -141,7 +140,13 @@ struct PacketGroup{
 
 class Parser{
 	public:
-		int parse(const char* filename, float slicetime);
+		void parse(const char* filename, float slicetime);
+		int parseold(const char* filename, float slicetime);
 	private:
+		map<long, vector<Packet> > packets;
+		vector<PacketGroup> aggregated;
+		
+		void readAndFillMap(const char* filename, float slicetime);
+		PacketGroup aggregate(long starttime, vector<Packet> packet_list);
 		Packet getFromPacket(struct pcap_pkthdr header, const u_char *packet);
 };

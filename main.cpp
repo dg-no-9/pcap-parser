@@ -79,7 +79,7 @@ int main(){
 	p->parse(pcap.c_str(), 0.5);
 	int tm = ((std::clock() - begin)/(double)(CLOCKS_PER_SEC/1000000));
 
-	cout << "Time Taken:" << tm << endl;
+	cout << "Time Taken:" << tm/1000000.0 << endl;
 	const char* args2 = (string("rm ") + pcap).c_str();
 	system(args2);
 
