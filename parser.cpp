@@ -22,19 +22,51 @@ float entropy(map<T, int> m){
     return -sum(numpy.log(al)*al)*/
 }
 
+int hashCode(initializer_list <long> a) {
+	//if (a == NULL) return 0;
+
+	int result = 1;
+	for (auto element: a) {
+		//long element = a[i];
+ 		int elementHash = (int)(element ^ (element >> 32));
+ 		result = 31 * result + elementHash;
+ 	}  
+ 	return result;      
+}
+
 void Parser::parse(const char* filename, float slicetime){
 	this->readAndFillMap(filename, slicetime);
 	typename map<long, vector<Packet> > ::iterator it;
+	const int thread_count = 15;
+	const int size = packets.size();
+	int count = 0;
+	
+	PacketGroup *p = new PacketGroup[size];
+	
+	thread *t = new thread[thread_count];
 
-	for(it = packets.begin(); it != packets.end(); it++){
-		//cout << it->first << " " << it->second.size() << endl;
-		this->aggregate(it->first, it->second);
+	/*this->aggregate(packets.begin()->first, packets.begin()->second, &p[0]);
+	p[0].print();
+	return;*/
+	
+	int i = 0;
+	for(it = packets.begin(); it != packets.end();){
+		int running_th_count = 0;
+		for(int j = 0; j < thread_count; j++, it++){
+			if(it == packets.end()) break;
+			t[j] = thread(&Parser::aggregate, this, it->first, it->second, &p[i]);
+			i++;
+			running_th_count++;
+		}
+		for (int j = 0; j < running_th_count; j++){
+			t[j].join();
+		}
+		
 	}
-	return;
-	typename vector<PacketGroup>::iterator git;
-
-	for(git = aggregated.begin(); git != aggregated.end(); git++ ){
-		((PacketGroup)(*git)).print();
+	
+	
+	for(int i = 0; i < size; i++){
+		p[i].print();
 	}
 
 }
@@ -84,7 +116,7 @@ void Parser::readAndFillMap(const char* filename, float slicetime){
 	}
 }
 
-PacketGroup Parser::aggregate(long starttime, vector<Packet> packet_list){
+void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* g){
 	int pktcount= 0,bytecount=0,fragcount=0,pktcountv6=0,bytecountv6=0,countsap=0,countsa=0,counttse=0,cbl=0,cbh=0,ws0=0,rsw0=0;
 	
 	vector<PacketGroup> rows;
@@ -92,6 +124,8 @@ PacketGroup Parser::aggregate(long starttime, vector<Packet> packet_list){
 					,cttl, csip, cdip, cmsbip, cmsb2ip, ctcphs, ctcpflagbyte, ctemp, css, cwscale,ctcpflag8;
 
     map<tuple<long, long, int, int>, int> ctcpcon, cudpcon;
+
+    map<int, int> hctcpcon, hcudpcon;
 
 	typename vector<Packet> :: iterator it;
 	for(it = packet_list.begin(); it != packet_list.end(); it++){
@@ -139,13 +173,17 @@ PacketGroup Parser::aggregate(long starttime, vector<Packet> packet_list){
             if (p.os>0) fragcount++;
 			if (p.protocol==1) cipicmp[p.icmptype]++;
 
-			tuple<long, long, int, int> comb1(p.sip,p.dip, p.sport, p.dport), 
-										comb2(p.dip, p.sip, p.dport, p.sport); // Two way combination of source IP/port and Dest IP/port.
+			/*tuple<long, long, int, int> comb1(p.sip,p.dip, p.sport, p.dport), 
+										comb2(p.dip, p.sip, p.dport, p.sport); // Two way combination of source IP/port and Dest IP/port. */
+			int hash1 = hashCode({p.sip, p.dip, (long)p.sport, (long)p.dport});
+			int hash2 = hashCode({p.dip, p.sip, (long)p.dport, (long)p.sport});
             if (p.protocol==17 && p.sport>0){
                 cipudppnum[sp]++; 
                 cipudppnum[dp]++;
-                cudpcon[comb1]++; 
-                cudpcon[comb2]++;
+                //cudpcon[comb1]++; 
+                //cudpcon[comb2]++;
+                hcudpcon[hash1]++;
+                hcudpcon[hash2]++;
             }
 
 			
@@ -159,9 +197,10 @@ PacketGroup Parser::aggregate(long starttime, vector<Packet> packet_list){
 
 				ciptcppnum[sp]++;
                 ciptcppnum[dp]++;
-                cudpcon[comb1]++; 
-                cudpcon[comb2]++;
-                
+                //ctcpcon[comb1]++; 
+                //ctcpcon[comb2]++;
+                hctcpcon[hash1]++;
+                hctcpcon[hash2]++;
                 if (p.hs>-1) ctcphs[p.hs]++;
 
 				if (p.fb>-1){
@@ -182,302 +221,66 @@ PacketGroup Parser::aggregate(long starttime, vector<Packet> packet_list){
 	}
 
 	//Store aggregated values into structure PacketGroup
-	PacketGroup g;
 	{
 
-		g.starttime = starttime;
+		g->starttime = starttime;
 
 		/* Integer Counters */
-		g.pktcount = pktcount;
-		g.pktcountv6 = pktcountv6;
-		g.bytecount = bytecount;
-		g.bytecountv6 = bytecountv6;
+		g->pktcount = pktcount;
+		g->pktcountv6 = pktcountv6;
+		g->bytecount = bytecount;
+		g->bytecountv6 = bytecountv6;
 
-		g.counters.lcttl = cttl.size();
-		g.counters.lcsip = csip.size();
-		g.counters.lcdip = cdip.size();
-		g.counters.lcmsbip = cmsbip.size();
-		g.counters.lcmsb2ip = cmsb2ip.size();
-		g.counters.lctcpcon = ctcpcon.size();
-		g.counters.lcudpcon = cudpcon.size();
+		g->counters.lcttl = cttl.size();
+		g->counters.lcsip = csip.size();
+		g->counters.lcdip = cdip.size();
+		g->counters.lcmsbip = cmsbip.size();
+		g->counters.lcmsb2ip = cmsb2ip.size();
+		g->counters.lctcpcon = hctcpcon.size();
+		g->counters.lcudpcon = hcudpcon.size();
 
-		g.cbl = cbl;
-		g.cbh = cbh;
-		g.ws0 = ws0;
-		g.rsw0 = rsw0;
-		g.fragcount = fragcount;
-		g.countsap = countsap;
-		g.countsa = countsa;
+		g->cbl = cbl;
+		g->cbh = cbh;
+		g->ws0 = ws0;
+		g->rsw0 = rsw0;
+		g->fragcount = fragcount;
+		g->countsap = countsap;
+		g->countsa = countsa;
 
-		g.counters.cttl = entropy(cttl);
-	    g.counters.csip = entropy(csip);
-	    g.counters.cdip = entropy(cdip);
-	    g.counters.cmsbip = entropy(cmsbip);
-	    g.counters.cmsb2ip = entropy(cmsb2ip);
+		g->counters.cttl = entropy(cttl);
+	    g->counters.csip = entropy(csip);
+	    g->counters.cdip = entropy(cdip);
+	    g->counters.cmsbip = entropy(cmsbip);
+	    g->counters.cmsb2ip = entropy(cmsb2ip);
 		
-		g.counttse = counttse;
+		g->counttse = counttse;
 		/*Integer Counters End */
 
 		/* Dictionary Counters */
-		g.counters.cipv6prot = cipv6prot;
-	    g.counters.cipprot = cipprot;
-	    g.counters.cipv6tcppnum = cipv6tcppnum;
-	    g.counters.ciptcppnum = ciptcppnum;
-	    g.counters.cipv6udppnum = cipv6udppnum;
-	    g.counters.cipudppnum = cipudppnum;
-	    g.counters.cipv6icmp = cipv6icmp;
-	    g.counters.cipicmp = cipicmp;
+		g->counters.cipv6prot = cipv6prot;
+	    g->counters.cipprot = cipprot;
+	    g->counters.cipv6tcppnum = cipv6tcppnum;
+	    g->counters.ciptcppnum = ciptcppnum;
+	    g->counters.cipv6udppnum = cipv6udppnum;
+	    g->counters.cipudppnum = cipudppnum;
+	    g->counters.cipv6icmp = cipv6icmp;
+	    g->counters.cipicmp = cipicmp;
 	    
-	    g.counters.ctcpcon = ctcpcon;
-	    g.counters.cudpcon = cudpcon;
-	    g.counters.ctcphs = ctcphs;
-	    g.counters.ctcpflagbyte = ctcpflagbyte;
-	    g.counters.ctemp = ctemp;
-	    g.counters.css = css;
-	    g.counters.cwscale = cwscale;
-	    g.counters.ctcpflag8 = ctcpflag8;
+	    //g->counters.ctcpcon = ctcpcon;
+	    //g->counters.cudpcon = cudpcon;
+	    g->counters.hcudpcon = hcudpcon;
+	    g->counters.hctcpcon = hcudpcon;
+	    g->counters.ctcphs = ctcphs;
+	    g->counters.ctcpflagbyte = ctcpflagbyte;
+	    g->counters.ctemp = ctemp;
+	    g->counters.css = css;
+	    g->counters.cwscale = cwscale;
+	    g->counters.ctcpflag8 = ctcpflag8;
+	    //cout <<hctcpcon.size() << endl;
+	    //cout <<ctcpcon.size() << endl;
 		/*Dictionary Counters End*/
 	}
-
-	return g;
   
-}
-
-int Parser::parseold(const char* filename, float slicetime){
-	pcap_t *handle;
-	struct pcap_pkthdr header;
-	const u_char *packet;
-	char errbuf[PCAP_ERRBUF_SIZE];
-
-	// open capture file for offline processing
-	handle = pcap_open_offline(filename, errbuf);
-	if (handle == NULL) {
-		cout << "pcap_open_live() failed: " << errbuf << endl;
-		return 1;
-	}
-
-
-	// start packet processing loop, just like live capture
-	/*if (pcap_loop(handle, 10, packetHandler, NULL) < 0) {
-		cout << "pcap_loop() failed: " << pcap_geterr(descr);
-		return 1;
-	}*/
-
-	long ts,tcount=0,starttime=0,prevtime=0;
-	long slice = (long)(slicetime * 1000000);
-	int pktcount= 0,bytecount=0,fragcount=0,pktcountv6=0,bytecountv6=0,countsap=0,countsa=0,counttse=0,cbl=0,cbh=0,ws0=0,rsw0=0;
-	long count = 0;
-	bool flag = true;
-	vector<PacketGroup> rows;
-	int rowcount = 0;
-	map<int, int> 
-	cipv6prot, 
-    cipprot,
-    cipv6tcppnum, 
-    ciptcppnum,
-    cipv6udppnum,
-    cipudppnum, 
-    cipv6icmp, 
-    cipicmp,
-    cttl, 
-    csip, 
-    cdip, 
-    cmsbip, 
-    cmsb2ip, 
-    ctcphs, 
-    ctcpflagbyte, 
-    ctemp,
-    css, 
-    cwscale,
-    ctcpflag8;
-
-    map<tuple<long, long, int, int>, int> ctcpcon, cudpcon;
-
-	while(packet = pcap_next(handle, &header), packet != NULL ){
-		
-		ts = (long)header.ts.tv_sec*1000000 + (long)header.ts.tv_usec;
-		Packet p = this->getFromPacket(header, packet);
-		//p.t.seconds = (long)header.ts.tv_sec;
-		//p.t.milliseconds = (long)header.ts.tv_usec;
-		count++;
-		if(count == 1){
-			starttime = ts;
-			prevtime = starttime;
-			cout << "Start Time:" << starttime << endl;
-		}
-		if(count > 1 && ts > (starttime+slice)){
-			PacketGroup g;
-			rowcount++;
-			g.starttime = starttime;
-			g.prevtime = prevtime;
-			/* Integer Counters */
-			g.pktcount = pktcount;
-			g.pktcountv6 = pktcountv6;
-			g.bytecount = bytecount;
-			g.bytecountv6 = bytecountv6;
-
-			g.counters.lcttl = cttl.size();
-			g.counters.lcsip = csip.size();
-			g.counters.lcdip = cdip.size();
-			g.counters.lcmsbip = cmsbip.size();
-			g.counters.lcmsb2ip = cmsb2ip.size();
-			g.counters.lctcpcon = ctcpcon.size();
-			g.counters.lcudpcon = cudpcon.size();
-
-			g.cbl = cbl;
-			g.cbh = cbh;
-			g.ws0 = ws0;
-			g.rsw0 = rsw0;
-			g.fragcount = fragcount;
-			g.countsap = countsap;
-			g.countsa = countsa;
-
-			g.counters.cttl = entropy(cttl);
-		    g.counters.csip = entropy(csip);
-		    g.counters.cdip = entropy(cdip);
-		    g.counters.cmsbip = entropy(cmsbip);
-		    g.counters.cmsb2ip = entropy(cmsb2ip);
-			
-			g.counttse = counttse;
-			/*Integer Counters End */
-
-			/* Dictionary Counters */
-			g.counters.cipv6prot = cipv6prot;
-		    g.counters.cipprot = cipprot;
-		    g.counters.cipv6tcppnum = cipv6tcppnum;
-		    g.counters.ciptcppnum = ciptcppnum;
-		    g.counters.cipv6udppnum = cipv6udppnum;
-		    g.counters.cipudppnum = cipudppnum;
-		    g.counters.cipv6icmp = cipv6icmp;
-		    g.counters.cipicmp = cipicmp;
-		    
-		    g.counters.ctcpcon = ctcpcon;
-		    g.counters.cudpcon = cudpcon;
-		    g.counters.ctcphs = ctcphs;
-		    g.counters.ctcpflagbyte = ctcpflagbyte;
-		    g.counters.ctemp = ctemp;
-		    g.counters.css = css;
-		    g.counters.cwscale = cwscale;
-		    g.counters.ctcpflag8 = ctcpflag8;
-			/*Dictionary Counters End*/
-
-			rows.push_back(g);
-			//if (rowcount == 10){exit(0);}
-			//g.print(); 
-
-			pktcount=bytecount=pktcountv6=bytecountv6=cbl=cbh=fragcount=countsap=counttse=countsa=ws0=rsw0=0;
-			cipv6prot.clear();
-			cipprot.clear();
-		    cipv6tcppnum.clear();
-		    ciptcppnum.clear();
-		    cipv6udppnum.clear();
-		    cipudppnum.clear();
-		    cipv6icmp.clear();
-		    cipicmp.clear();
-		    cttl.clear();
-		    csip.clear();
-		    cdip.clear();
-		    cmsbip.clear();
-		    cmsb2ip.clear();
-		    ctcpcon.clear();
-		    cudpcon.clear();
-		    ctcphs.clear();
-		    ctcpflagbyte.clear();
-		    ctemp.clear();
-		    css.clear();
-		    cwscale.clear();
-		    ctcpflag8.clear();
-		    prevtime = starttime;
-			starttime += slice;
-		}
-		int sp, dp;
-		if(p.sport > 0){
-			sp = p.sport;
-			dp = p.dport;
-			if(sp > 1023){ 
-				sp = 1024;
-				tcount++;
-			}
-			if(dp > 1023) dp = 1024;
-			if(sp == 1024 && dp == 1024) cbh++;
-			if(sp < 1024 && dp < 1024) cbl++;
-
-		}
-	
-		if(p.v6 > 0){
-			pktcountv6++;
-			bytecountv6 += p.pktsize;
-			cipv6prot[p.protocol]++;
-			if (p.icmptype>-1) cipv6icmp[p.icmptype]++;
-            else if (p.protocol==6 && p.sport>0){
-                cipv6tcppnum[sp]++;
-                cipv6tcppnum[dp]++;
-            }
-            else if (p.protocol==17 && p.sport>0){
-                cipv6udppnum[sp]++;
-                cipv6udppnum[dp]++;
-            }
-		}
-		else if(p.v4 > 0){
-			pktcount++;
-			cipprot[p.protocol]++;
-			bytecount += p.pktsize;
-			if (p.ttl >= 0) cttl[p.ttl]++;
-            csip[p.sip]++;
-            cdip[p.dip]++;
-            cmsbip[p.sip>>24]++;
-            cmsbip[p.dip>>24]++;
-            cmsb2ip[p.sip>>16]++;
-            cmsb2ip[p.dip>>16]++;
-
-            if (p.os>0) fragcount++;
-			if (p.protocol==1) cipicmp[p.icmptype]++;
-
-			tuple<long, long, int, int> comb1(p.sip,p.dip, p.sport, p.dport), 
-										comb2(p.dip, p.sip, p.dport, p.sport); // Two way combination of source IP/port and Dest IP/port.
-            if (p.protocol==17 && p.sport>0){
-                cipudppnum[sp]++; 
-                cipudppnum[dp]++;
-                //cudpcon[comb1]++; 
-                //cudpcon[comb2]++;
-            }
-
-			
-			if (p.protocol==6 and p.sport>0){
-				if (p.ws==0) ws0++;
-				if (p.ss>0) css[p.ss]++;
-				if (p.wscale>0) cwscale[p.wscale]++;
-				if (p.sap>0) countsap++;
-				if (p.tse>0) counttse++;
-				if (p.sa>0) countsa++;
-
-				ciptcppnum[sp]++;
-                ciptcppnum[dp]++;
-                //cudpcon[comb1]++; 
-                //cudpcon[comb2]++;
-                
-                if (p.hs>-1) ctcphs[p.hs]++;
-
-				if (p.fb>-1){
-					ctcpflagbyte[p.fb]++;
-                    if (p.fb&(1<<0))  ctcpflag8[TH_FIN]++;
-                    if (p.fb&(1<<1))  ctcpflag8[TH_SYN]++;
-                    if (p.fb&(1<<2))  ctcpflag8[TH_RST]++;
-                    if (p.fb&(1<<3))  ctcpflag8[TH_PUSH]++;
-                    if (p.fb&(1<<4))  ctcpflag8[TH_ACK]++;
-                    if (p.fb&(1<<5))  ctcpflag8[TH_URG]++;
-                    if (p.fb&(1<<6))  ctcpflag8[TH_ECE]++;
-                    if (p.fb&(1<<7))  ctcpflag8[TH_CWR]++;
-					if ( (p.fb&(1<<2)) && (p.ws==0) ) rsw0+=1;
-				}
-			}
-		}
-
-		//if(count == 20) exit(0);
-	}
-	cout << "Total Packets:" << count << endl;
-	cout << "End Time:" << starttime << endl;
-	return 0;
 }
 
 Packet Parser::getFromPacket(struct pcap_pkthdr header, const u_char *packet){

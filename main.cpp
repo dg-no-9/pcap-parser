@@ -70,7 +70,7 @@ int hashCode(int* a) {
 int main(){
 	
 	
-	string filename = /*"equinix-sanjose.dirA.20101029-135500.UTC.anon.pcap.gz";*/"equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap.gz";
+	string filename = "equinix-sanjose.dirA.20101029-135500.UTC.anon.pcap.gz";//"equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap.gz";
 	string pcap = filename.substr(0, filename.size() - 3);
 	Parser *p = new Parser();
 	const char* args = (string("gunzip -c ") + filename + string(" >") + pcap).c_str();

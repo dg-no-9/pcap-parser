@@ -13,6 +13,7 @@
 #include <functional>
 #include <iomanip>
 #include <ctime>
+#include <thread>
 #include "header.h"
 
 using namespace std;
@@ -74,18 +75,18 @@ struct Counter{
 	    ctemp,
 	    css, 
 	    cwscale,
-	    ctcpflag8;
+	    ctcpflag8,
+	    hctcpcon,hcudpcon;
 
-	    map<tuple<long, long, int, int>, int> ctcpcon,cudpcon;
-
+	    /*map<tuple<long, long, int, int>, int> ctcpcon,cudpcon;*/
 	    float cttl, csip, cdip, cmsbip, cmsb2ip; //Entropy Counters
 
 	    int lcttl, lcsip, lcdip, lcmsbip, lcmsb2ip, lctcpcon, lcudpcon; //Length Counters
 
-		    void print(){
-		    	printdict(cipprot);
-		    	//cout << cttl << endl;
-		    }
+	    void print(){
+	    	//printtupledict(ctcpcon);
+	    	//cout << lctcpcon << endl;
+	    }
 
     private:
 		template <typename T>
@@ -95,6 +96,20 @@ struct Counter{
 			for(it = m.begin(); it != m.end(); it++){
 				if(it != m.begin()) cout << ',';
 				cout <<'('<<it->first << "," << it->second << ')';
+			}
+			
+			cout << ']' << endl;
+		}
+
+		template <typename T>
+		void printtupledict(map<T, int> m){
+			typename map<T, int>::iterator it;
+			cout << '[';
+			for(it = m.begin(); it != m.end(); it++){
+				if(it != m.begin()) cout << ',';
+				cout << "(" << get<0>(it->first) << get<1>(it->first);
+				
+				cout <<"):" << it->second;
 			}
 			
 			cout << ']' << endl;
@@ -132,7 +147,7 @@ struct PacketGroup{
 		void print(){
 			//printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
 					//pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
-			//counters.print();
+			counters.print();
 		}
 
 };
@@ -147,6 +162,6 @@ class Parser{
 		vector<PacketGroup> aggregated;
 		
 		void readAndFillMap(const char* filename, float slicetime);
-		PacketGroup aggregate(long starttime, vector<Packet> packet_list);
+		void aggregate(long starttime, vector<Packet> packet_list, PacketGroup* out);
 		Packet getFromPacket(struct pcap_pkthdr header, const u_char *packet);
 };
