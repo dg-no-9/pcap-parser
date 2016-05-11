@@ -60,6 +60,9 @@ struct Packet{
 
 struct Counter{
 	public:
+		Counter():	cttl(0.0),csip(0.0), cdip(0.0), cmsbip(0.0), cmsb2ip(0.0)
+					,lcttl(0), lcsip(0), lcdip(0), lcmsbip(0), lcmsb2ip(0), lctcpcon(0), lcudpcon(0)
+					 {}
 		map<int, int>
 		cipv6prot, 
 	    cipprot,
@@ -78,6 +81,8 @@ struct Counter{
 	    ctcpflag8,
 	    hctcpcon,hcudpcon;
 
+	    map<int, int> _cttl, _csip, _cdip, _cmsbip, _cmsb2ip, _ctcpcon, _cudpcon; //Maps whose entropy matters
+
 	    /*map<tuple<long, long, int, int>, int> ctcpcon,cudpcon;*/
 	    float cttl, csip, cdip, cmsbip, cmsb2ip; //Entropy Counters
 
@@ -86,19 +91,21 @@ struct Counter{
 	    void print(){
 	    	//printtupledict(ctcpcon);
 	    	//cout << lctcpcon << endl;
+	    	//cout << cttl << '\t' << csip <<endl;
+	    	//printdict(_cttl);
 	    }
 
     private:
 		template <typename T>
 		void printdict(map<T, int> m){
 			typename map<T, int>::iterator it;
-			cout << '[';
+			cout << '{';
 			for(it = m.begin(); it != m.end(); it++){
 				if(it != m.begin()) cout << ',';
-				cout <<'('<<it->first << "," << it->second << ')';
+				cout <<' '<<it->first << ":" << it->second << ' ';
 			}
 			
-			cout << ']' << endl;
+			cout << '}' << endl;
 		}
 
 		template <typename T>
@@ -147,7 +154,8 @@ struct PacketGroup{
 		void print(){
 			//printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
 					//pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
-			counters.print();
+			//cout << pktcount << '\t' << bytecount << '\t';
+			//counters.print();
 		}
 
 };
@@ -155,7 +163,7 @@ struct PacketGroup{
 
 class Parser{
 	public:
-		void parse(const char* filename, float slicetime);
+		void parse(const char* filename, float slicetime, const int thread_count);
 		int parseold(const char* filename, float slicetime);
 	private:
 		map<long, vector<Packet> > packets;
@@ -163,5 +171,8 @@ class Parser{
 		
 		void readAndFillMap(const char* filename, float slicetime);
 		void aggregate(long starttime, vector<Packet> packet_list, PacketGroup* out);
+		void aggregatePackets(long starttime, vector<Packet> packet_list, PacketGroup* out);
 		Packet getFromPacket(struct pcap_pkthdr header, const u_char *packet);
+
+		PacketGroup aggregatePacketGroups(PacketGroup* groups, int size);
 };

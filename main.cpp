@@ -67,19 +67,20 @@ int hashCode(int* a) {
 }
 
 
-int main(){
-	
-	
-	string filename = "equinix-sanjose.dirA.20101029-135500.UTC.anon.pcap.gz";//"equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap.gz";
+int main(int argc, char** argv){
+	int thread_count = 1;
+	if(argv[1]) thread_count =  atoi(argv[2]);
+	//string filename = /*"equinix-sanjose.dirA.20101029-135500.UTC.anon.pcap.gz";*/"equinix-sanjose.dirB.20110120-140100.UTC.anon.pcap.gz";
+	string filename = argv[1];
 	string pcap = filename.substr(0, filename.size() - 3);
 	Parser *p = new Parser();
 	const char* args = (string("gunzip -c ") + filename + string(" >") + pcap).c_str();
 	system(args);
-	clock_t begin = clock();
-	p->parse(pcap.c_str(), 0.5);
-	int tm = ((std::clock() - begin)/(double)(CLOCKS_PER_SEC/1000000));
+	auto begin = chrono::system_clock().now() ;
+	p->parse(pcap.c_str(), 0.5, (const int) thread_count);
+	chrono::duration<double> dur = chrono::system_clock().now()  - begin;
 
-	cout << "Time Taken:" << tm/1000000.0 << endl;
+	cout << "Time Taken:" << dur.count() << endl;
 	const char* args2 = (string("rm ") + pcap).c_str();
 	system(args2);
 
