@@ -58,4 +58,6 @@
 	#define TRANSFORM(x) 	((x & 0xff00) >> 8) + ((x & 0x00ff) << 8)
 
 	#define TWOBYTE_TO_INT(x, i) 	(((int) *(x + i)) << 8) + ((int)*(x + i+1)) //Converts consecutive two bytes of integer into one.
+
+	#define SHIFT(x, i, by) 	(((int) *(x + i)) << by)
 };

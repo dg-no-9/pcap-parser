@@ -1,7 +1,6 @@
 #include "parser.h"
-
+#include "sender.h"
 template <typename T>
-
 float entropy(map<T, int> m){
 	typename map<T, int>::iterator it;
 	int sum;
@@ -15,13 +14,7 @@ float entropy(map<T, int> m){
 		ent += log(divided) * divided;
 	}
 	return (-1) * ent;
-	/*a=ctr.values()
-    b=sum(a)
-    al=numpy.asarray(a)
-    al=al/float(b)
-    return -sum(numpy.log(al)*al)*/
 }
-
 int hashCode(initializer_list <long> a) {
 	//if (a == NULL) return 0;
 
@@ -34,13 +27,21 @@ int hashCode(initializer_list <long> a) {
  	return result;      
 }
 
+void update(map<int, int> *master, map<int, int> child){
+	for (auto it=child.begin(); it!=child.end(); ++it) {
+	  if ( (*master)[it->first] )
+	    (*master)[it->first] += it->second;
+	  else
+	    (*master)[it->first] = it->second;
+	}
+}
+
 void Parser::parse(const char* filename, float slicetime, const int thread_count){
 	this->readAndFillMap(filename, slicetime);
 	typename map<long, vector<Packet> > ::iterator it;
 	//const int thread_count = 5;
 	const int size = packets.size();
 	int count = 0;
-	int limit = 3;
 	PacketGroup *p = new PacketGroup[size];
 	
 	
@@ -59,6 +60,7 @@ void Parser::parse(const char* filename, float slicetime, const int thread_count
 
 	count = 0;
 	cout << "---------------" <<endl;
+	Sender* sender = new Sender();
 	for(it = packets.begin(); it != packets.end(); it++){
 		long ts = it->first;
 		vector<Packet> pktsperts = it->second;
@@ -85,22 +87,13 @@ void Parser::parse(const char* filename, float slicetime, const int thread_count
 		PacketGroup g = this->aggregatePacketGroups(groups, thread_count);
 
 		count++;
-		if (count <= limit){
-			g.print();
-			//delete groups; groups = NULL;
-			//delete t; t = NULL;
-			//exit(0); // To break after first group of 0.5 time slice completes.
-		}
+		
+		string json = g.buildjson();
+		sender->sendjson(json.c_str(), json.length());
+		//break;
 	}
-}
+	sender->finish();
 
-void update(map<int, int> *master, map<int, int> child){
-	for (auto it=child.begin(); it!=child.end(); ++it) {
-	  if ( (*master)[it->first] )
-	    (*master)[it->first] += it->second;
-	  else
-	    (*master)[it->first] = it->second;
-	}
 }
 
 PacketGroup Parser::aggregatePacketGroups(PacketGroup* groups, int size){
@@ -112,7 +105,7 @@ PacketGroup Parser::aggregatePacketGroups(PacketGroup* groups, int size){
 		g.bytecount 	+= groups->bytecount;
 		g.fragcount 	+= groups->fragcount;
 		g.pktcountv6 	+= groups->pktcountv6;
-		g.bytecountv6 	+= groups->pktcountv6;
+		g.bytecountv6 	+= groups->bytecountv6;
 		g.countsap 		+= groups->countsap;
 		g.countsa 		+= groups->countsa;
 		g.counttse		+= groups->counttse;
@@ -142,13 +135,15 @@ PacketGroup Parser::aggregatePacketGroups(PacketGroup* groups, int size){
 		update(&g.counters.css, groups->counters.css);
 		update(&g.counters.cwscale, groups->counters.cwscale);
 		update(&g.counters.ctcpflag8, groups->counters.ctcpflag8);
-		update(&g.counters.hctcpcon, groups->counters.hctcpcon);
-		update(&g.counters.hcudpcon, groups->counters.hcudpcon);
+		update(&g.counters._ctcpcon, groups->counters._ctcpcon);
+		update(&g.counters._cudpcon, groups->counters._cudpcon);
+
 
 	}
-
+	
 	/*Dict Counters*/
 	g.counters.lcttl 	= g.counters._cttl.size();
+	g.counters.lcdip 	= g.counters._cdip.size();
 	g.counters.lcsip 	= g.counters._csip.size();
 	g.counters.lcmsbip 	= g.counters._cmsbip.size();
 	g.counters.lcmsb2ip = g.counters._cmsb2ip.size();
@@ -195,10 +190,10 @@ void Parser::readAndFillMap(const char* filename, float slicetime){
 		if(count == 1){
 			starttime = ts;
 			prevtime = starttime;
-			//cout << "Start Time:" << starttime << endl;
 		}
 		if(count > 1 && ts > (starttime+slice)){
-			//vector<Packet> _new(v);
+			//v.pop_back(); //Last packet removed, //TODO remove this later on.
+			v.erase(v.begin());
 			packets[starttime] = v;
 			v.clear();
 			slicecount++;
@@ -206,9 +201,10 @@ void Parser::readAndFillMap(const char* filename, float slicetime){
 			prevtime = starttime;
 			starttime += slice;
 		}
-		//if(slicecount == 100) break;
 
 	}
+
+	pcap_close(handle);
 }
 
 void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* g){
@@ -370,8 +366,8 @@ void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* 
 	    
 	    //g->counters.ctcpcon = ctcpcon;
 	    //g->counters.cudpcon = cudpcon;
-	    g->counters.hcudpcon = hcudpcon;
-	    g->counters.hctcpcon = hcudpcon;
+	    g->counters._ctcpcon = hcudpcon;
+	    g->counters._cudpcon = hcudpcon;
 	    g->counters.ctcphs = ctcphs;
 	    g->counters.ctcpflagbyte = ctcpflagbyte;
 	    g->counters.ctemp = ctemp;
@@ -547,8 +543,8 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 	    
 	    //g->counters.ctcpcon = ctcpcon;
 	    //g->counters.cudpcon = cudpcon;
-	    g->counters.hcudpcon = hcudpcon;
-	    g->counters.hctcpcon = hcudpcon;
+	    g->counters._cudpcon = hcudpcon;
+	    g->counters._ctcpcon = hctcpcon;
 	    g->counters.ctcphs = ctcphs;
 	    g->counters.ctcpflagbyte = ctcpflagbyte;
 	    g->counters.ctemp = ctemp;
@@ -579,8 +575,13 @@ Packet Parser::getFromPacket(struct pcap_pkthdr header, const u_char *packet){
 		p.protocol = ip->ip_p;					//Protocol
 		p.pktsize = TRANSFORM(ip->ip_len);
 		p.ttl = ip->ip_ttl;
-		p.sip = (long)(ip->ip_src).s_addr;
-		p.dip = (long)(ip->ip_dst).s_addr;
+		//p.sip = (long)(ip->ip_src).s_addr;
+		//p.dip = (long)(ip->ip_dst).s_addr;
+		p.sip = (SHIFT(packet, 12, 24) + SHIFT(packet, 13, 16) + SHIFT(packet, 14, 8)) + (int) *(packet + 15);
+		p.dip = (SHIFT(packet, 16, 24) + SHIFT(packet, 17, 16) + SHIFT(packet, 18, 8)) + (int) *(packet + 19);
+		//sip=(b[12]<<24)+(b[13]<<16)+(b[14]<<8)+b[15]
+        //dip=(b[16]<<24)+(b[17]<<16)+(b[18]<<8)+b[19]
+
 		p.os = (int)*(packet+7);
 		if (p.protocol == 1){				//ICMP Protocol
 			p.icmptype = (int)*(packet+20);
@@ -593,8 +594,9 @@ Packet Parser::getFromPacket(struct pcap_pkthdr header, const u_char *packet){
 			p.hs = (tcp->th_offx2) >> 4;
 			p.ws = TRANSFORM(tcp->th_win);
 			p.fb = tcp->th_flags;
-			if(p.hs > 5){ //If packet has TCP 1 byte Option-Type (0 for end of option), 1 byte option length, variable sized option data
-				int i = 40; // Options are 40 byte afterwards
+			if(p.hs > 5){ //Options have three fields, 1. option kind(1 byte), 2. Option length, 3. Option Data(variable length)
+				//If packet has TCP 1 byte Option-Type (0 for end of option), 1 byte option length, variable sized option data
+				int i = 40; // Options start after 40 bytes of packet data.
 				int val = (int)*(packet + i);
 				while(val = (int)*(packet + i), val != 0){
 					int option_size = (int)*(packet + i+ 1);
