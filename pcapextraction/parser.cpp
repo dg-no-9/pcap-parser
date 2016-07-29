@@ -43,20 +43,6 @@ void Parser::parse(const char* filename, float slicetime, const int thread_count
 	const int size = packets.size();
 	int count = 0;
 	PacketGroup *p = new PacketGroup[size];
-	
-	
-	/*for(it = packets.begin(); it != packets.end(); it++,p++){
-		this->aggregate(it->first, it->second, p);
-
-		count ++;
-		if(count <= limit){
-
-			//cout << "pc:" << p->pktcount << " bc:" << p->bytecount << "\t" ;
-			p->print();
-			//delete[] p;
-		 	//break;
-		}
-	}*/
 
 	count = 0;
 	cout << "---------------" <<endl;
@@ -89,10 +75,10 @@ void Parser::parse(const char* filename, float slicetime, const int thread_count
 		count++;
 		
 		string json = g.buildjson();
-		sender->sendjson(json.c_str(), json.length());
-		//break;
+		sender->sendjson(json.c_str(), json.length()); //Send json to socket.
 	}
 	sender->finish();
+	cout << "Pcap Extraction Complete." << endl;
 
 }
 
@@ -201,9 +187,8 @@ void Parser::readAndFillMap(const char* filename, float slicetime){
 			prevtime = starttime;
 			starttime += slice;
 		}
-
 	}
-
+	cout << "Total Packets:" << count << endl;
 	pcap_close(handle);
 }
 
@@ -213,8 +198,6 @@ void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* 
 	vector<PacketGroup> rows;
 	map<int, int> 	cipv6prot, cipprot,cipv6tcppnum, ciptcppnum,cipv6udppnum, cipudppnum, cipv6icmp, cipicmp
 					,cttl, csip, cdip, cmsbip, cmsb2ip, ctcphs, ctcpflagbyte, ctemp, css, cwscale,ctcpflag8;
-
-    //map<tuple<long, long, int, int>, int> ctcpcon, cudpcon;
 
     map<int, int> hctcpcon, hcudpcon;
 
@@ -364,8 +347,6 @@ void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* 
 	    g->counters.cipv6icmp = cipv6icmp;
 	    g->counters.cipicmp = cipicmp;
 	    
-	    //g->counters.ctcpcon = ctcpcon;
-	    //g->counters.cudpcon = cudpcon;
 	    g->counters._ctcpcon = hcudpcon;
 	    g->counters._cudpcon = hcudpcon;
 	    g->counters.ctcphs = ctcphs;
@@ -374,8 +355,6 @@ void Parser::aggregate(long starttime, vector<Packet> packet_list, PacketGroup* 
 	    g->counters.css = css;
 	    g->counters.cwscale = cwscale;
 	    g->counters.ctcpflag8 = ctcpflag8;
-	    //cout <<hctcpcon.size() << endl;
-	    //cout <<ctcpcon.size() << endl;
 		/*Dictionary Counters End*/
 
 	}
@@ -445,8 +424,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
             if (p.protocol==17 && p.sport>0){
                 cipudppnum[sp]++; 
                 cipudppnum[dp]++;
-                //cudpcon[comb1]++; 
-                //cudpcon[comb2]++;
                 hcudpcon[hash1]++;
                 hcudpcon[hash2]++;
             }
@@ -462,8 +439,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 
 				ciptcppnum[sp]++;
                 ciptcppnum[dp]++;
-                //ctcpcon[comb1]++; 
-                //ctcpcon[comb2]++;
                 hctcpcon[hash1]++;
                 hctcpcon[hash2]++;
                 if (p.hs>-1) ctcphs[p.hs]++;
@@ -496,14 +471,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 		g->bytecount = bytecount;
 		g->bytecountv6 = bytecountv6;
 
-		/*g->counters.lcttl = cttl.size();
-		g->counters.lcsip = csip.size();
-		g->counters.lcdip = cdip.size();
-		g->counters.lcmsbip = cmsbip.size();
-		g->counters.lcmsb2ip = cmsb2ip.size();
-		g->counters.lctcpcon = hctcpcon.size();
-		g->counters.lcudpcon = hcudpcon.size();*/
-
 		g->cbl = cbl;
 		g->cbh = cbh;
 		g->ws0 = ws0;
@@ -511,12 +478,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 		g->fragcount = fragcount;
 		g->countsap = countsap;
 		g->countsa = countsa;
-
-		/*g->counters.cttl = entropy(cttl);
-	    g->counters.csip = entropy(csip);
-	    g->counters.cdip = entropy(cdip);
-	    g->counters.cmsbip = entropy(cmsbip);
-	    g->counters.cmsb2ip = entropy(cmsb2ip);*/
 		
 
 		g->counttse = counttse;
@@ -541,8 +502,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 	    g->counters.cipv6icmp = cipv6icmp;
 	    g->counters.cipicmp = cipicmp;
 	    
-	    //g->counters.ctcpcon = ctcpcon;
-	    //g->counters.cudpcon = cudpcon;
 	    g->counters._cudpcon = hcudpcon;
 	    g->counters._ctcpcon = hctcpcon;
 	    g->counters.ctcphs = ctcphs;
@@ -551,8 +510,6 @@ void Parser::aggregatePackets(long starttime, vector<Packet> packet_list, Packet
 	    g->counters.css = css;
 	    g->counters.cwscale = cwscale;
 	    g->counters.ctcpflag8 = ctcpflag8;
-	    //cout <<hctcpcon.size() << endl;
-	    //cout <<ctcpcon.size() << endl;
 		/*Dictionary Counters End*/
 	}
   
@@ -575,12 +532,8 @@ Packet Parser::getFromPacket(struct pcap_pkthdr header, const u_char *packet){
 		p.protocol = ip->ip_p;					//Protocol
 		p.pktsize = TRANSFORM(ip->ip_len);
 		p.ttl = ip->ip_ttl;
-		//p.sip = (long)(ip->ip_src).s_addr;
-		//p.dip = (long)(ip->ip_dst).s_addr;
 		p.sip = (SHIFT(packet, 12, 24) + SHIFT(packet, 13, 16) + SHIFT(packet, 14, 8)) + (int) *(packet + 15);
 		p.dip = (SHIFT(packet, 16, 24) + SHIFT(packet, 17, 16) + SHIFT(packet, 18, 8)) + (int) *(packet + 19);
-		//sip=(b[12]<<24)+(b[13]<<16)+(b[14]<<8)+b[15]
-        //dip=(b[16]<<24)+(b[17]<<16)+(b[18]<<8)+b[19]
 
 		p.os = (int)*(packet+7);
 		if (p.protocol == 1){				//ICMP Protocol
@@ -642,7 +595,6 @@ Packet Parser::getFromPacket(struct pcap_pkthdr header, const u_char *packet){
 		else if(p.protocol == 6 || p.protocol == 17){
 			p.sport = TWOBYTE_TO_INT(packet,40);
 			p.dport = TWOBYTE_TO_INT(packet,42);
-			//cout << p.sport << "," << p.dport<< endl;
 		}
 	}
 	

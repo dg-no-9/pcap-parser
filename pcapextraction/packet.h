@@ -78,12 +78,7 @@ struct Counter{
 
 	    int lcttl, lcsip, lcdip, lcmsbip, lcmsb2ip, lctcpcon, lcudpcon; //Length Counters
 
-	    void print(){
-	    	//printtupledict(ctcpcon);
-	    	//cout << lctcpcon << endl;
-	    	//cout << cttl << '\t' << csip <<endl;
-	    	//printdict(_cttl);
-	    }
+	    void print(){}
 
 	    string tojson();
 	    
@@ -159,10 +154,6 @@ struct PacketGroup{
 		struct Counter counters; //Struct for dictionaries.
 
 		void print(){
-			//printf("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d, %d\n", 
-					//pktcount, bytecount, fragcount, pktcountv6, bytecountv6, countsap, countsa, counttse, cbl, cbh, ws0, rsw0);
-			//cout << pktcount << '\t' << bytecount << '\t';
-			//counters.print();
 		}
 
 		void printjson(char* filename);

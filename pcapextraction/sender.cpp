@@ -1,5 +1,6 @@
 #include "sender.h"
-
+char* d_ip;
+int port;
 Sender::Sender(){
 	clientfd = 0;
     struct sockaddr_in server;
@@ -11,8 +12,8 @@ Sender::Sender(){
         printf("Error creating socket.");
     }
     server.sin_family = AF_INET;
-    server.sin_port = htons(PORT);
-    server.sin_addr.s_addr = inet_addr(DST);
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = inet_addr(d_ip);
     memset(server.sin_zero, '\0', sizeof(server.sin_zero));
 
     if( connect(clientfd, (struct sockaddr *) &server, sizeof(server)) == 0) printf("Connected to server\n");

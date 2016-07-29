@@ -5,9 +5,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
-
 #define DST 		"127.0.0.1"
 #define PORT 	9999
+
+extern int port;
+extern char* d_ip;
 
 class Sender{
 	private:
